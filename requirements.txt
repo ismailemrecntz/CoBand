@@ -1,0 +1,15 @@
+# Versions used for all results of the paper (Python 3.12, CUDA 12.1).
+# Install PyTorch first, e.g.  pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu121
+torch==2.5.1
+timm==1.0.22
+# The augmentation pipeline depends on the albumentations version (some arguments are ignored by 2.0.5, see
+# data/mfnet.py); other versions change the augmentation and therefore the training.
+albumentations==2.0.5
+albucore==0.0.23
+numpy==1.26.4
+opencv-python-headless==4.11.0.86
+pillow==11.0.0
+tqdm
+tensorboard
+# optional, MACs in benchmark.py
+# thop

@@ -1,0 +1,289 @@
+#!/bin/bash
+# Training commands of the PST900 models in the paper (generated from the configurations of our runs).
+# Usage: PST900_ROOT=/path/to/data bash scripts/train_pst900.sh <variant> [gpu]
+#   variants: coband_nano coband_tiny coband_base fgf rgb_only ir_only
+set -euo pipefail
+: "${PST900_ROOT:?set PST900_ROOT to the dataset root}"
+VARIANT="${1:?variant}"
+GPU="${2:-0}"
+cd "$(dirname "$0")/.."
+
+case "$VARIANT" in
+  coband_nano)
+    ARGS=(--dataset pst900 \
+      --train_source train_ \
+      --img_height 720 \
+      --img_width 1280 \
+      --num_classes 5 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --stage12 coband \
+      --deep lsf \
+      --fusion_type default \
+      --modality fusion \
+      --coband_sigma 2.0 \
+      --coband_kernels 7,5 \
+      --epochs 150 \
+      --batch_size 2 \
+      --num_workers 4 \
+      --lr_backbone 2.5e-05 \
+      --lr_fusion 0.00015 \
+      --lr_decoder 0.00015 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_warmup \
+      --t0 50 \
+      --warmup_epochs 10 \
+      --flat_epochs 30 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.35 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.2 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.06 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.2 \
+      --focal_gamma 2.0 \
+      --focal_target_class 4 \
+      --class_weights \
+      --class_weight_multiplier 3.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  coband_tiny)
+    ARGS=(--dataset pst900 \
+      --train_source train_ \
+      --img_height 720 \
+      --img_width 1280 \
+      --num_classes 5 \
+      --rgb_arch convnextv2_tiny.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_tiny.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[96,192,384,768]' \
+      --deep_supervision \
+      --stage12 coband \
+      --deep lsf \
+      --fusion_type default \
+      --modality fusion \
+      --coband_sigma 2.0 \
+      --coband_kernels 7,5 \
+      --epochs 150 \
+      --batch_size 2 \
+      --num_workers 4 \
+      --lr_backbone 2.5e-05 \
+      --lr_fusion 0.00015 \
+      --lr_decoder 0.00015 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_warmup \
+      --t0 50 \
+      --warmup_epochs 10 \
+      --flat_epochs 30 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.35 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.2 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.06 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.2 \
+      --focal_gamma 2.0 \
+      --focal_target_class 4 \
+      --class_weights \
+      --class_weight_multiplier 3.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  coband_base)
+    ARGS=(--dataset pst900 \
+      --train_source train_ \
+      --img_height 720 \
+      --img_width 1280 \
+      --num_classes 5 \
+      --rgb_arch convnextv2_base.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_base.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[128,256,512,1024]' \
+      --deep_supervision \
+      --stage12 coband \
+      --deep lsf \
+      --fusion_type default \
+      --modality fusion \
+      --coband_sigma 2.0 \
+      --coband_kernels 7,5 \
+      --epochs 150 \
+      --batch_size 2 \
+      --num_workers 4 \
+      --lr_backbone 2.5e-05 \
+      --lr_fusion 0.00015 \
+      --lr_decoder 0.00015 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_warmup \
+      --t0 50 \
+      --warmup_epochs 10 \
+      --flat_epochs 30 \
+      --ema_decay 0.999 \
+      --amp_dtype bf16 \
+      --ce_weight 0.35 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.2 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.06 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.2 \
+      --focal_gamma 2.0 \
+      --focal_target_class 4 \
+      --class_weights \
+      --class_weight_multiplier 3.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  fgf)
+    ARGS=(--dataset pst900 \
+      --train_source train_ \
+      --img_height 720 \
+      --img_width 1280 \
+      --num_classes 5 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --stage12 fgf \
+      --deep enhanced \
+      --fusion_type default \
+      --modality fusion \
+      --coband_sigma 2.0 \
+      --coband_kernels 7,5 \
+      --epochs 100 \
+      --batch_size 2 \
+      --num_workers 4 \
+      --lr_backbone 1.5e-05 \
+      --lr_fusion 5e-05 \
+      --lr_decoder 5e-05 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_warmup \
+      --t0 50 \
+      --warmup_epochs 10 \
+      --flat_epochs 30 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.35 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.2 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.08 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.15 \
+      --focal_gamma 1.5 \
+      --focal_target_class 3 \
+      --class_weights \
+      --class_weight_multiplier 3.0 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  rgb_only)   # stopped after 65 epochs, best epoch 47
+    ARGS=(--dataset pst900 \
+      --train_source train_ \
+      --img_height 720 \
+      --img_width 1280 \
+      --num_classes 5 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --fusion_type default \
+      --modality rgb_only \
+      --epochs 65 \
+      --batch_size 2 \
+      --num_workers 4 \
+      --lr_backbone 2.5e-05 \
+      --lr_fusion 0.0003 \
+      --lr_decoder 0.00015 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_warmup \
+      --t0 50 \
+      --warmup_epochs 10 \
+      --flat_epochs 30 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.35 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.2 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.06 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.2 \
+      --focal_gamma 2.0 \
+      --focal_target_class 4 \
+      --class_weights \
+      --class_weight_multiplier 3.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  ir_only)   # stopped after 71 epochs, best epoch 48
+    ARGS=(--dataset pst900 \
+      --train_source train_ \
+      --img_height 720 \
+      --img_width 1280 \
+      --num_classes 5 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --fusion_type default \
+      --modality ir_only \
+      --epochs 71 \
+      --batch_size 2 \
+      --num_workers 4 \
+      --lr_backbone 2.5e-05 \
+      --lr_fusion 0.0003 \
+      --lr_decoder 0.00015 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_warmup \
+      --t0 50 \
+      --warmup_epochs 10 \
+      --flat_epochs 30 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.35 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.2 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.06 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.2 \
+      --focal_gamma 2.0 \
+      --focal_target_class 4 \
+      --class_weights \
+      --class_weight_multiplier 3.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  *) echo "unknown variant: $VARIANT"; exit 1 ;;
+esac
+
+python train.py --data_root "$PST900_ROOT" --exp_name "pst900_$VARIANT" --gpu "$GPU" "${ARGS[@]}"

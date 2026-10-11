@@ -1,0 +1,513 @@
+#!/bin/bash
+# Training commands of the MFNET models in the paper (generated from the configurations of our runs).
+# Usage: MFNET_ROOT=/path/to/data bash scripts/train_mfnet.sh <variant> [gpu]
+#   variants: coband fgf rgb_only ir_only fgf_lsf add concat lsf_all sigma1 sigma4 learned_filter
+set -euo pipefail
+: "${MFNET_ROOT:?set MFNET_ROOT to the dataset root}"
+VARIANT="${1:?variant}"
+GPU="${2:-0}"
+cd "$(dirname "$0")/.."
+
+case "$VARIANT" in
+  coband)   # trained 134 epochs, best epoch 47; 120 as for the ablations
+    ARGS=(--dataset mfnet \
+      --train_source train_ \
+      --img_height 480 \
+      --img_width 640 \
+      --num_classes 9 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --stage12 coband \
+      --deep lsf \
+      --fusion_type default \
+      --modality fusion \
+      --coband_sigma 2.0 \
+      --coband_kernels 7,5 \
+      --epochs 120 \
+      --batch_size 4 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.0005 \
+      --lr_decoder 0.0005 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.3 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.15 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.08 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.25 \
+      --focal_gamma 2.5 \
+      --focal_target_class 6 \
+      --class_weights \
+      --class_weight_multiplier 4.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  fgf)
+    ARGS=(--dataset mfnet \
+      --train_source train_ \
+      --img_height 480 \
+      --img_width 640 \
+      --num_classes 9 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --stage12 fgf \
+      --deep enhanced \
+      --fusion_type default \
+      --modality fusion \
+      --coband_sigma 2.0 \
+      --coband_kernels 7,5 \
+      --epochs 200 \
+      --batch_size 4 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.0005 \
+      --lr_decoder 0.0005 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.3 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.15 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.08 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.25 \
+      --focal_gamma 2.5 \
+      --focal_target_class 6 \
+      --class_weights \
+      --class_weight_multiplier 4.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  rgb_only)
+    ARGS=(--dataset mfnet \
+      --train_source train_ \
+      --img_height 480 \
+      --img_width 640 \
+      --num_classes 9 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --fusion_type default \
+      --modality rgb_only \
+      --epochs 200 \
+      --batch_size 4 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.0003 \
+      --lr_decoder 0.0005 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.3 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.15 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.08 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.25 \
+      --focal_gamma 2.5 \
+      --focal_target_class 6 \
+      --class_weights \
+      --class_weight_multiplier 4.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  ir_only)
+    ARGS=(--dataset mfnet \
+      --train_source train_ \
+      --img_height 480 \
+      --img_width 640 \
+      --num_classes 9 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --fusion_type default \
+      --modality ir_only \
+      --epochs 200 \
+      --batch_size 4 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.0003 \
+      --lr_decoder 0.0005 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.3 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.15 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.08 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.25 \
+      --focal_gamma 2.5 \
+      --focal_target_class 6 \
+      --class_weights \
+      --class_weight_multiplier 4.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  fgf_lsf)
+    ARGS=(--dataset mfnet \
+      --train_source train_ \
+      --img_height 480 \
+      --img_width 640 \
+      --num_classes 9 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --stage12 fgf \
+      --deep lsf \
+      --fusion_type default \
+      --modality fusion \
+      --coband_sigma 2.0 \
+      --coband_kernels 7,5 \
+      --epochs 120 \
+      --batch_size 4 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.0005 \
+      --lr_decoder 0.0005 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.3 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.15 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.08 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.25 \
+      --focal_gamma 2.5 \
+      --focal_target_class 6 \
+      --class_weights \
+      --class_weight_multiplier 4.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  add)
+    ARGS=(--dataset mfnet \
+      --train_source train_ \
+      --img_height 480 \
+      --img_width 640 \
+      --num_classes 9 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --fusion_type add \
+      --modality fusion \
+      --epochs 120 \
+      --batch_size 4 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.0005 \
+      --lr_decoder 0.0005 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype bf16 \
+      --ce_weight 0.3 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.15 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.08 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.25 \
+      --focal_gamma 2.5 \
+      --focal_target_class 6 \
+      --class_weights \
+      --class_weight_multiplier 4.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  concat)
+    ARGS=(--dataset mfnet \
+      --train_source train_ \
+      --img_height 480 \
+      --img_width 640 \
+      --num_classes 9 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --fusion_type concat \
+      --modality fusion \
+      --epochs 120 \
+      --batch_size 4 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.0005 \
+      --lr_decoder 0.0005 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.3 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.15 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.08 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.25 \
+      --focal_gamma 2.5 \
+      --focal_target_class 6 \
+      --class_weights \
+      --class_weight_multiplier 4.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  lsf_all)
+    ARGS=(--dataset mfnet \
+      --train_source train_ \
+      --img_height 480 \
+      --img_width 640 \
+      --num_classes 9 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --fusion_type lsf_all \
+      --modality fusion \
+      --epochs 120 \
+      --batch_size 4 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.0005 \
+      --lr_decoder 0.0005 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.3 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.15 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.08 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.25 \
+      --focal_gamma 2.5 \
+      --focal_target_class 6 \
+      --class_weights \
+      --class_weight_multiplier 4.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  sigma1)
+    ARGS=(--dataset mfnet \
+      --train_source train_ \
+      --img_height 480 \
+      --img_width 640 \
+      --num_classes 9 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --stage12 coband \
+      --deep lsf \
+      --fusion_type default \
+      --modality fusion \
+      --coband_sigma 1.0 \
+      --coband_kernels 5,3 \
+      --epochs 120 \
+      --batch_size 4 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.0005 \
+      --lr_decoder 0.0005 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.3 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.15 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.08 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.25 \
+      --focal_gamma 2.5 \
+      --focal_target_class 6 \
+      --class_weights \
+      --class_weight_multiplier 4.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  sigma4)
+    ARGS=(--dataset mfnet \
+      --train_source train_ \
+      --img_height 480 \
+      --img_width 640 \
+      --num_classes 9 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --stage12 coband \
+      --deep lsf \
+      --fusion_type default \
+      --modality fusion \
+      --coband_sigma 4.0 \
+      --coband_kernels 13,9 \
+      --epochs 120 \
+      --batch_size 4 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.0005 \
+      --lr_decoder 0.0005 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.3 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.15 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.08 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.25 \
+      --focal_gamma 2.5 \
+      --focal_target_class 6 \
+      --class_weights \
+      --class_weight_multiplier 4.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  learned_filter)
+    ARGS=(--dataset mfnet \
+      --train_source train_ \
+      --img_height 480 \
+      --img_width 640 \
+      --num_classes 9 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --stage12 coband \
+      --deep lsf \
+      --fusion_type default \
+      --modality fusion \
+      --coband_sigma 2.0 \
+      --coband_kernels 7,5 \
+      --coband_learned_filter \
+      --epochs 120 \
+      --batch_size 4 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.0005 \
+      --lr_decoder 0.0005 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.3 \
+      --dice_weight 0.25 \
+      --lovasz_weight 0.15 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.08 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.25 \
+      --focal_gamma 2.5 \
+      --focal_target_class 6 \
+      --class_weights \
+      --class_weight_multiplier 4.5 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  *) echo "unknown variant: $VARIANT"; exit 1 ;;
+esac
+
+python train.py --data_root "$MFNET_ROOT" --exp_name "mfnet_$VARIANT" --gpu "$GPU" "${ARGS[@]}"
