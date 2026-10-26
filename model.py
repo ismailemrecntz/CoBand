@@ -8,6 +8,8 @@ Network layout:
 
 The ablation variants of the paper are built by the same class:
     stage12='fgf'           FGF module: same band split, gate sees thermal statistics only
+    coband_gate=...         CoBand with the same filters but another band gate ('no_rgb_context', 'static',
+                            'stop_gradient'; see CoBand)
     deep='enhanced'         heavier enhanced semantic fusion block at stages 3-4
     fusion_type='add' | 'concat' | 'lsf_all'   one simple fusion at all four stages
     modality='rgb_only' | 'ir_only'            single-encoder references, no fusion
@@ -109,6 +111,9 @@ class LearnedLowPass(GaussianLowPass):
         self.kernel = nn.Parameter(kernel)
 
 
+COBAND_GATES = ('rgb_context', 'no_rgb_context', 'static', 'stop_gradient')
+
+
 class CoBand(nn.Module):
     """CoBand module (stages 1-2).
 
@@ -116,9 +121,17 @@ class CoBand(nn.Module):
     (b) alpha = sigmoid(W_g [s ; c]) with band statistics s and RGB context c (one weight per channel)
         T_hat = alpha * T_L + (1 - alpha) * T_H
     (c) safe residual fusion with the RGB feature
+
+    gate: 'rgb_context' is the paper model. The gate ablations of the paper keep the filters and change only (b):
+        'no_rgb_context'  alpha = sigmoid(W_g s), the gate sees the band statistics only
+        'static'          alpha = sigmoid(theta), one learned weight per channel that sees no input (theta = 0 at start)
+        'stop_gradient'   as 'rgb_context', but no gradient flows from the gate into the RGB encoder
     """
-    def __init__(self, rgb_c, ir_c, kernel_size=7, reduction=16, sigma=2.0, learnable_filter=False):
+    def __init__(self, rgb_c, ir_c, kernel_size=7, reduction=16, sigma=2.0, learnable_filter=False,
+                 gate='rgb_context'):
         super().__init__()
+        assert gate in COBAND_GATES, gate
+        self.gate_mode = gate
 
         self.ir_proj = nn.Sequential(                                     # phi
             nn.Conv2d(ir_c, rgb_c, 1, bias=False),
@@ -133,17 +146,25 @@ class CoBand(nn.Module):
         self.sa_low = SpatialAttention(kernel_size=7)                     # low band: large structures
         self.sa_high = SpatialAttention(kernel_size=3)                    # high band: thin structures
 
-        hidden = max(rgb_c // reduction, 16)
-        self.rgb_context = nn.Sequential(                                 # c
-            nn.AdaptiveAvgPool2d(1),
-            nn.Conv2d(rgb_c, hidden, 1, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(hidden, rgb_c, 1, bias=False)
-        )
-        self.freq_gate = nn.Sequential(                                   # W_g, input [s ; c]
-            nn.Conv2d(rgb_c * 3, rgb_c, 1, bias=False),
-            nn.Sigmoid()
-        )
+        if gate in ('rgb_context', 'stop_gradient'):
+            hidden = max(rgb_c // reduction, 16)
+            self.rgb_context = nn.Sequential(                             # c
+                nn.AdaptiveAvgPool2d(1),
+                nn.Conv2d(rgb_c, hidden, 1, bias=False),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(hidden, rgb_c, 1, bias=False)
+            )
+            self.freq_gate = nn.Sequential(                               # W_g, input [s ; c]
+                nn.Conv2d(rgb_c * 3, rgb_c, 1, bias=False),
+                nn.Sigmoid()
+            )
+        elif gate == 'no_rgb_context':
+            self.freq_gate = nn.Sequential(                               # W_g, input s
+                nn.Conv2d(rgb_c * 2, rgb_c, 1, bias=False),
+                nn.Sigmoid()
+            )
+        else:                                                             # 'static'
+            self.gate_logit = nn.Parameter(torch.zeros(1, rgb_c, 1, 1))  # theta
         self.fusion_block = SafeResidualFusion(rgb_c)
 
     def decompose(self, x):
@@ -160,11 +181,20 @@ class CoBand(nn.Module):
         ir_low_refined = ir_low * mask_low
         ir_high_refined = ir_high * mask_high
 
-        rgb_ctx = self.rgb_context(rgb_feat)                              # [B, C, 1, 1]
-        ir_mixed = torch.cat([ir_low_refined, ir_high_refined], dim=1)
-        ir_global = F.adaptive_avg_pool2d(torch.abs(ir_mixed), 1)         # s: [B, 2C, 1, 1]
-        gate_input = torch.cat([ir_global, rgb_ctx], dim=1)               # [s ; c]: [B, 3C, 1, 1]
-        alpha = self.freq_gate(gate_input)                                # [B, C, 1, 1], weight of the low band
+        if self.gate_mode == 'static':
+            # same alpha for every image; cast like the band features under autocast
+            alpha = torch.sigmoid(self.gate_logit).to(ir_low_refined.dtype)   # [1, C, 1, 1]
+        else:
+            ir_mixed = torch.cat([ir_low_refined, ir_high_refined], dim=1)
+            ir_global = F.adaptive_avg_pool2d(torch.abs(ir_mixed), 1)     # s: [B, 2C, 1, 1]
+            if self.gate_mode == 'no_rgb_context':
+                gate_input = ir_global
+            else:
+                # 'stop_gradient': the context MLP is trained, but no gradient reaches the RGB encoder this way
+                rgb_src = rgb_feat.detach() if self.gate_mode == 'stop_gradient' else rgb_feat
+                rgb_ctx = self.rgb_context(rgb_src)                       # c: [B, C, 1, 1]
+                gate_input = torch.cat([ir_global, rgb_ctx], dim=1)       # [s ; c]: [B, 3C, 1, 1]
+            alpha = self.freq_gate(gate_input)                            # [B, C, 1, 1], weight of the low band
 
         ir_final = alpha * ir_low_refined + (1 - alpha) * ir_high_refined
         return self.fusion_block(rgb_feat, ir_final)
@@ -501,6 +531,8 @@ class CoBandNet(nn.Module):
                      'add', 'concat', 'lsf_all'.
         coband_sigma, coband_kernels, coband_learned_filter: Gaussian filter of the band split
                      (paper: sigma 2, 7x7 at stage 1 and 5x5 at stage 2, fixed).
+        coband_gate: band gate of the CoBand module, 'rgb_context' (paper) or one of the gate ablations
+                     'no_rgb_context', 'static', 'stop_gradient'.
         modality: 'fusion', or 'rgb_only' / 'ir_only' for the single-encoder references.
     """
 
@@ -519,12 +551,14 @@ class CoBandNet(nn.Module):
         coband_sigma: float = 2.0,
         coband_kernels: Tuple[int, int] = (7, 5),
         coband_learned_filter: bool = False,
+        coband_gate: str = 'rgb_context',
         modality: str = 'fusion',
     ):
         super().__init__()
         assert stage12 in ('coband', 'fgf'), stage12
         assert deep in ('lsf', 'enhanced'), deep
         assert fusion_type in ('default', 'add', 'concat', 'lsf_all'), fusion_type
+        assert coband_gate in COBAND_GATES, coband_gate
         assert modality in ('fusion', 'rgb_only', 'ir_only'), modality
         self.modality = modality
         self.num_classes = num_classes
@@ -563,9 +597,11 @@ class CoBandNet(nn.Module):
                 # stages 1-2
                 if stage12 == 'coband':
                     self.fusion_stage1 = CoBand(rgb_c=rc[0], ir_c=ic[0], kernel_size=coband_kernels[0],
-                                                sigma=coband_sigma, learnable_filter=coband_learned_filter)
+                                                sigma=coband_sigma, learnable_filter=coband_learned_filter,
+                                                gate=coband_gate)
                     self.fusion_stage2 = CoBand(rgb_c=rc[1], ir_c=ic[1], kernel_size=coband_kernels[1],
-                                                sigma=coband_sigma, learnable_filter=coband_learned_filter)
+                                                sigma=coband_sigma, learnable_filter=coband_learned_filter,
+                                                gate=coband_gate)
                 else:
                     self.fusion_stage1 = FGF(rgb_c=rc[0], ir_c=ic[0])
                     self.fusion_stage2 = FGF(rgb_c=rc[1], ir_c=ic[1])

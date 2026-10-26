@@ -83,7 +83,10 @@ IRON_ROOT=/path/to/IRON_Dataset     bash scripts/train_iron.sh   coband      0
 ```
 
 The variants of each script are the models of the paper (main models, single-modality references and
-ablations); the arguments are taken from the configurations of our runs. Runs are written to
+ablations); the arguments are taken from the configurations of our runs. The gate ablations on IRON keep the
+CoBand filters and change only the band gate (`--coband_gate`): `no_rgb_context` (gate on the band statistics
+only), `static_alpha` (one learned weight per channel that sees no input) and `stop_gradient` (RGB context
+without gradient into the RGB encoder). Runs are written to
 `experiments/<dataset>_<variant>/` (`config.json`, `log.txt`, TensorBoard logs and the checkpoint with the
 best test mIoU, `checkpoints/best_model.ema.pth`). As in most prior work on these benchmarks, and as stated in
 the paper, the reported checkpoint is the one with the best test mIoU. Each script trains for the number of

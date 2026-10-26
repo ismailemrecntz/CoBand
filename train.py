@@ -526,6 +526,11 @@ def get_parser():
     g.add_argument('--coband_kernels', type=str, default='7,5', help='Gaussian kernel size at stage 1 and 2')
     g.add_argument('--coband_learned_filter', action='store_true', default=False,
                    help='ablation: free learnable depthwise low-pass kernel (Gaussian initialization)')
+    g.add_argument('--coband_gate', type=str, default='rgb_context',
+                   choices=['rgb_context', 'no_rgb_context', 'static', 'stop_gradient'],
+                   help="band gate of the CoBand module: 'rgb_context' (paper) or a gate ablation: gate on the band "
+                        "statistics only, a learned static per-channel weight, or the RGB context without gradient "
+                        "into the RGB encoder")
 
     g = p.add_argument_group('optimization')
     g.add_argument('--epochs', type=int, default=120)

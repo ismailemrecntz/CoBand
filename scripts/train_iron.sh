@@ -1,7 +1,7 @@
 #!/bin/bash
 # Training commands of the IRON models in the paper (generated from the configurations of our runs).
 # Usage: IRON_ROOT=/path/to/data bash scripts/train_iron.sh <variant> [gpu]
-#   variants: coband fgf_enh fgf_lsf coband_enh add concat lsf_all rgb_only ir_only
+#   variants: coband fgf_enh fgf_lsf coband_enh add concat lsf_all rgb_only ir_only no_rgb_context static_alpha stop_gradient
 set -euo pipefail
 : "${IRON_ROOT:?set IRON_ROOT to the dataset root}"
 VARIANT="${1:?variant}"
@@ -373,6 +373,147 @@ case "$VARIANT" in
       --deep_supervision \
       --fusion_type default \
       --modality ir_only \
+      --epochs 12 \
+      --batch_size 8 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.00015 \
+      --lr_decoder 0.00015 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.35 \
+      --dice_weight 0.3 \
+      --lovasz_weight 0.2 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.04 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.0 \
+      --focal_gamma 2.0 \
+      --focal_target_class -1 \
+      --class_weight_multiplier 1.0 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  no_rgb_context)
+    ARGS=(--dataset iron \
+      --train_source train \
+      --img_height 512 \
+      --img_width 640 \
+      --num_classes 2 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --stage12 coband \
+      --deep lsf \
+      --fusion_type default \
+      --modality fusion \
+      --coband_sigma 2.0 \
+      --coband_kernels 7,5 \
+      --coband_gate no_rgb_context \
+      --epochs 12 \
+      --batch_size 8 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.00015 \
+      --lr_decoder 0.00015 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.35 \
+      --dice_weight 0.3 \
+      --lovasz_weight 0.2 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.04 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.0 \
+      --focal_gamma 2.0 \
+      --focal_target_class -1 \
+      --class_weight_multiplier 1.0 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  static_alpha)
+    ARGS=(--dataset iron \
+      --train_source train \
+      --img_height 512 \
+      --img_width 640 \
+      --num_classes 2 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --stage12 coband \
+      --deep lsf \
+      --fusion_type default \
+      --modality fusion \
+      --coband_sigma 2.0 \
+      --coband_kernels 7,5 \
+      --coband_gate static \
+      --epochs 12 \
+      --batch_size 8 \
+      --num_workers 4 \
+      --lr_backbone 5e-05 \
+      --lr_fusion 0.00015 \
+      --lr_decoder 0.00015 \
+      --clip_grad 0.5 \
+      --grad_accum_steps 1 \
+      --scheduler cosine_restart \
+      --t0 40 \
+      --warmup_epochs 10 \
+      --flat_epochs 20 \
+      --ema_decay 0.999 \
+      --amp_dtype fp16 \
+      --ce_weight 0.35 \
+      --dice_weight 0.3 \
+      --lovasz_weight 0.2 \
+      --ohem_weight 0.15 \
+      --boundary_weight 0.04 \
+      --ohem_thresh 0.7 \
+      --ohem_min_kept 100000 \
+      --focal_weight 0.0 \
+      --focal_gamma 2.0 \
+      --focal_target_class -1 \
+      --class_weight_multiplier 1.0 \
+      --aux_weight_start 0.3 \
+      --aux_weight_end 0.05 \
+      --aux_weight_decay_epoch 80 \
+      --seed 42 \
+      --paper_pipeline) ;;
+  stop_gradient)
+    ARGS=(--dataset iron \
+      --train_source train \
+      --img_height 512 \
+      --img_width 640 \
+      --num_classes 2 \
+      --rgb_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --ir_arch convnextv2_nano.fcmae_ft_in22k_in1k_384 \
+      --context_dim '[80,160,320,640]' \
+      --deep_supervision \
+      --stage12 coband \
+      --deep lsf \
+      --fusion_type default \
+      --modality fusion \
+      --coband_sigma 2.0 \
+      --coband_kernels 7,5 \
+      --coband_gate stop_gradient \
       --epochs 12 \
       --batch_size 8 \
       --num_workers 4 \

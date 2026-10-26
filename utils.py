@@ -28,6 +28,7 @@ def build_model(c, pretrained=False):
         coband_sigma=float(c.get('coband_sigma', 2.0)),
         coband_kernels=tuple(parse_int_list(c.get('coband_kernels', '7,5'))),
         coband_learned_filter=bool(c.get('coband_learned_filter', False)),
+        coband_gate=c.get('coband_gate', 'rgb_context'),
         modality=c.get('modality', 'fusion'))
 
 
